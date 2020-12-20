@@ -33,6 +33,17 @@ def query(user_input):
     results=sorted(unsorted_sim, key=lambda x: x[1], reverse=True)
     return results
 
+def single_word_query(user_input):
+    try:
+        top_result=[i for i in df.index if user_input.lower() in df.loc[i, 'story_title'].lower().split(' ')][0]
+        return find_similar_stories(top_result)
+    except IndexError:
+        doc = nlp(user_input)
+        input_vector=doc.vector
+        unsorted_sim=[(i, similarity(input_vector, df.loc[i, 'vectors'])) for i in df.index if df.loc[i, 'word_count']>100]
+        results=sorted(unsorted_sim, key=lambda x: x[1], reverse=True)
+        return results
+
 def sample_results(results, n=12):
     strong_options=results[:n]
     medium_options=results[n:2*n]
@@ -101,9 +112,15 @@ def slice_text(story_text):
 @app.route("/", methods=['POST', 'GET'])
 def index():
     organized_results=[]
+    
     if request.method=='POST':
         user_query = request.form['content']
-        output = query(user_query)
+
+        if len(user_query.split(' '))>1:
+            output = query(user_query)
+        else:
+            output = single_word_query(user_query)
+
         sampled=sample_results(output)
 
         for story_id, similarity in sampled:
